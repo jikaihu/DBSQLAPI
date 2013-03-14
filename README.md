@@ -1,7 +1,7 @@
 DBSQLAPI is a C++ library for accessing multiple SQL databases (Oracle, MySQL, Redis，Memcached...). It uses native APIs of target DBMS so applications developed with SQLAPI++ library run swiftly and efficiently. The product also provides a low-level interface that allows developers to access database-specific features. By encapsulating a vendor's API, SQLAPI++ library acts as middleware and delivers database portability. See details on supporting SQL database servers on different platforms:
 
 
-Why use SQLAPI++?
+Why use DBSQLAPI?
 
 DBSQLAPI directly calls native API's of target DBMSs . That's why DBSQLAPI is the fastest way to manage you data.
 No need (vs ADO) to install and configure OLEDB and/or ODBC drivers when developing and distributing your applications.
