@@ -356,8 +356,11 @@ class oraHandle:public dbHandle
 public:
     oraHandle();
     virtual ~oraHandle();
+
+protected:    
     virtual void loadDBFunc(void* dlHandle);
-        
+
+public:        
     // 8.0.x calls
     OCIInitialize_t	OCIInitialize;
     OCIHandleAlloc_t	OCIHandleAlloc;

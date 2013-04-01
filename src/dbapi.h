@@ -1,11 +1,13 @@
 #ifndef H_DBAPI_H
 #define H_DBAPI_H
-
+#include "dbsql.h"
 class dbapi
 {
 public:
-    dbapi(){};
-    virtual ~dbapi(){};
+    dbapi();
+    virtual ~dbapi();
+
+public:    
     virtual int getErr();
     virtual void phfree();
 
@@ -32,35 +34,36 @@ public:
     virtual int phSetLongbyte(unsigned int n, void *value, int len);
 
     virtual int phExecute(bool isCommit=true);
+    
     virtual int setLongFld(const char *sql,char *longMsg,int longType,bool isCommit=true);
 
     virtual bool isTable(const char *tab_name);
 
-	virtual int getSysDate(char *pcSysdate);
+    virtual int getSysDate(char *pcSysdate);
 
-	virtual bool checkSql(const char *pcSQLStmt, bool isSelectSQL);
+    virtual bool checkSql(const char *pcSQLStmt, bool isSelectSQL);
 
-	virtual int executeSql(const char *sql, bool isCommit=true);
+    virtual int executeSql(const char *sql, bool isCommit=true);
 
-	virtual int executeSql(const char *sql,int* iReturn, bool isCommit=true);
+    virtual int executeSql(const char *sql,int* iReturn, bool isCommit=true);
 
-	virtual void beginTrans();
+    virtual void beginTrans();
 
-	virtual void commitTrans();
+    virtual void commitTrans();
 
-	virtual void rollbackTrans();
+    virtual void rollbackTrans();
 
-	virtual int query(const char *sql,int& handle);
+    virtual int query(const char *sql,int& handle);
 
-	virtual int fetch(int handle,TFieldList& fld_list);
+    virtual int fetch(int handle,TFieldList& fld_list);
 
-	virtual int noValueFetch(int handle);
+    virtual int noValueFetch(int handle);
 
-	virtual int closequery(int handle);
+    virtual int closeQuery(int handle);
 
-	virtual int getCurRec(int handle,int *rowCount);
+    virtual int getCurRec(int handle,int *rowCount);
 
-	virtual int setDateFormat(DateFormat dateFormat);
+    virtual int setDateFormat(DateFormat dateFormat);
 };
 
 #endif

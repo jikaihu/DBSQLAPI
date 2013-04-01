@@ -1442,7 +1442,7 @@ int oracleapi::getCurRec(int handle, int *rowCount)
 }
 
 
-int oracleapi::closequery(int handle)
+int oracleapi::closeQuery(int handle)
 {
 	db_cursor *ptr;
 
@@ -1559,8 +1559,8 @@ int oracleapi::getSysDate(char *pcSysdate)
 	TFieldList myList;
 	int rtn = getRec((char *)"SELECT SYSDATE FROM DUAL", myList);
 	if(rtn != 0) return(rtn);
-
-	char *pcTmpSysdate = (char*)myList[0].fieldValue().asDate();
+        int iPos = 0;
+	char *pcTmpSysdate = (char*)myList[iPos].fieldValue().asDate();
 
 	if(pcTmpSysdate) strcpy(pcSysdate, pcTmpSysdate);
 

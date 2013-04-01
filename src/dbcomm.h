@@ -7,6 +7,15 @@ enum  DateFormat{
 	chinese_datetime	//YYYY-MM-DD HH24:MI:SS
 };
 
+typedef enum
+{
+    SQL_No_Error,
+    SQL_Library_Error,
+    SQL_DBMS_API_Error,
+    SQL_Error_Reserved = (int)(((unsigned int)(-1))/2)
+} ErrorType;
+
+
 
 enum DataType
 {

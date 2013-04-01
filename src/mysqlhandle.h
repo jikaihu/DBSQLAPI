@@ -169,7 +169,7 @@ typedef unsigned int (STDCALL *mysql_stmt_field_count_t)(MYSQL_STMT *stmt);
 
 typedef my_bool (STDCALL *mysql_commit_t)(MYSQL * mysql);
 
-typedef int (STDCALL *mysql_server_init_t)(int argc, char **argv, char **groups);
+//typedef int (STDCALL *mysql_server_init_t)(int argc, char **argv, char **groups);
 
 typedef MYSQL *		(STDCALL *mysql_real_connect_t)(MYSQL *mysql, const char *host,
 					   const char *user,
@@ -178,7 +178,7 @@ typedef MYSQL *		(STDCALL *mysql_real_connect_t)(MYSQL *mysql, const char *host,
 					   unsigned int port,
 					   const char *unix_socket,
 					   unsigned long clientflag);
-
+typedef my_bool (STDCALL *mysql_rollback_t)(MYSQL * mysql);
 
 // API declarations
 class mysqlHandle:public dbHandle
@@ -186,8 +186,11 @@ class mysqlHandle:public dbHandle
 public:
     mysqlHandle();
     virtual ~mysqlHandle();
+
+protected:    
     virtual void loadDBFunc(void* dlHandle);
-        
+
+public:        
     mysql_num_rows_t mysql_num_rows;
     mysql_num_fields_t mysql_num_fields;
     mysql_eof_t mysql_eof;
@@ -286,6 +289,7 @@ public:
     mysql_commit_t mysql_commit;
     mysql_server_init_t mysql_server_init;
     mysql_real_connect_t mysql_real_connect;
+    mysql_rollback_t mysql_rollback;
 };
 
 #endif

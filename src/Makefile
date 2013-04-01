@@ -12,18 +12,21 @@ DBPUBOBJ=./dbpub.o
 DBHANDLE=./dbhandle.o
 MYSQLHANDLE=./mysqlhandle.o
 ORACLEHANDLE=./orahandle.o
+DBAPI=./dbapi.o
 
-OBJS=${DBSQLOBJ} $(ORACLEAPIOBJ) $(MYSQLAPIOBJ) $(VAROBJ) $(NVLISTOBJ) ${DBPUBOBJ} ${DBHANDLE} ${MYSQLHANDLE} ${ORACLEHANDLE}
+OBJS=${DBSQLOBJ} $(ORACLEAPIOBJ) $(MYSQLAPIOBJ) $(VAROBJ) $(NVLISTOBJ) ${DBPUBOBJ} ${DBHANDLE} ${MYSQLHANDLE} ${ORACLEHANDLE} ${DBAPI}
 
 TARGET=${TOP_DIR}/libdbsql.so
 
 
-LIBS = 
+LIBS = -L/usr/lib64/mysql -lmysqlclient_r -fPIC -dl
+#LIBS = `mysql_config --libs_r` -lmysqlclient_r
 
-INCS = -I./  -I${TOP_DIR}/rdb-inc/oracle -I${TOP_DIR}/rdb-inc/mysql -I${TOP_DIR}/rdb-inc/redis -I${TOP_DIR}/rdb-inc/memcached
+INCS = -I./  -I${TOP_DIR}/rdb-inc/oracle -I/usr/include/mysql 
+#INCS = -I./  -I${TOP_DIR}/rdb-inc/oracle  `mysql_config --cflags` 
 
 
-CXXFLAGS = -g -fpic -DSYS_VERSION=\"$(VERSION)\"
+CXXFLAGS = -g -fpic -DSQL_VERSION=\"$(VERSION)\" -DHAVE_DLOPEN -DHAVE_DLFCN_H
 CFLAGS =
 SOFLAGS = -g -shared -Wall
 OFLAGS = -g -Wall
@@ -59,7 +62,10 @@ $(MYSQLHANDLE): ${TOP_DIR}/src/mysqlhandle.cpp
 
 $(ORACLEHANDLE): ${TOP_DIR}/src/orahandle.cpp
 	$(CPP) $(CXXFLAGS) -c $< -o $@ $(INCS)	
-
+	
+$(DBAPI): ${TOP_DIR}/src/dbapi.cpp
+	$(CPP) $(CXXFLAGS) -c $< -o $@ $(INCS)	
+	
 install:
 	echo "inctalling ........................."
 	

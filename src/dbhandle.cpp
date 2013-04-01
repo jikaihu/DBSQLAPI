@@ -3,11 +3,13 @@
 #include <dlfcn.h>
 #include "dbhandle.h"
 #include "dbsql.h"
+#include "dbsqlapierror.h"
 
 dbHandle::dbHandle() 
 {
     pLibraryName = NULL;
     bLoadHandleFlag = false;
+    pthread_mutex_init(&loadLibMutex, NULL);
 }
 
 dbHandle::~dbHandle()
@@ -18,34 +20,37 @@ dbHandle::~dbHandle()
     
 void dbHandle::loadLibrary()
 {
-    if(bLoadHandleFlag)
+    if(!bLoadHandleFlag)
     {
+        pthread_mutex_lock(&loadLibMutex);
         void *dl_handle = NULL;
         char *error = NULL;
 
         /* Open the shared object */
-        dl_handle = dlopen(pLibraryName, RTLD_LAZY );
+        dl_handle = dlopen(pLibraryName, RTLD_GLOBAL | RTLD_NOW);
         if (!dl_handle) 
         {
-            throw TException(9999,  "!!! %s\n", dlerror() );
+            pthread_mutex_unlock(&loadLibMutex);
+            throw TException(LIB_ERR_DLOPEN_ERROR,  LIB_ERR_INFO_DLOPEN_ERROR, dlerror() );
         }
 
         loadDBFunc(dl_handle);
         
         /* Close the object */
-        dlclose( dl_handle );
+        //dlclose( dl_handle );
         bLoadHandleFlag = true;
+        pthread_mutex_unlock(&loadLibMutex);
     }
 }
 
-void dbHandle::loadFunc(void* dlHandle, void* pFunc, const char* pMethod)
+void dbHandle::loadFunc(void* dlHandle, void*& pFunc, const char* pMethod)
 {
     char* error = NULL;
     pFunc = dlsym( dlHandle, pMethod );
     error = dlerror();
     if (error != NULL)\
     {
-        throw TException(9999, "!!! %s\n", error );
+        throw TException(LIB_ERR_DLSYM_ERROR,  LIB_ERR_INFO_DLSYM_ERROR, pMethod, error);
     }
     return;
 }

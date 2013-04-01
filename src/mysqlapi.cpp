@@ -210,7 +210,7 @@ void mysql_connect::commitTrans()
 
 void mysql_connect::rollbackTrans()
 {
-	my_bool status = mysql_rollback(&mysql);
+	my_bool status = g_mysql.mysql_rollback(&mysql);
 	transaction = MY_NO;
 	if(*g_mysql.mysql_error(&mysql))
 	{
@@ -241,12 +241,12 @@ char* mysql_connect::getErrInfo()
 	return NULL;
     
     if (strcmp(msgbuf,_res) == 0)
-		return msgbuf;
+	return msgbuf;
 
     return (strncpy(msgbuf,_res,strlen(_res)));  
 }
 
-int		mysql_connect::changeDB(const char* dbstring)
+int mysql_connect::changeDB(const char* dbstring)
 {
 	if (dbstring)
 	{
@@ -497,6 +497,7 @@ int mysql_cursor::define()
 	
 	if (g_mysql.mysql_stmt_bind_result(stmtp, mybind) != 0)
 		return -1;
+    
 	#ifdef DEBUG	
 	for(i=0;i<m_itemNum;i++)
 	{
@@ -619,15 +620,15 @@ unsigned int   mysql_cursor::getStmtErrNo()
 
 char* mysql_cursor::getStmtErrInfo()
 {
-	if(stmtp && this->getStmtErrNo()>0)
-	{
-		const char* ret = g_mysql.mysql_stmt_error(stmtp);
-    		strncpy(msgbuf,ret,strlen(ret));  
-	}
-	return msgbuf;
+    if(stmtp && this->getStmtErrNo()>0)
+    {
+        const char* ret = g_mysql.mysql_stmt_error(stmtp);
+        strncpy(msgbuf,ret,strlen(ret));  
+    }
+    return msgbuf;
 }
 
-void 	mysql_cursor::reportErrorInfo(unsigned int * errno,char * perrbuf)
+void mysql_cursor::reportErrorInfo(unsigned int * errno,char * perrbuf)
 {
 	*errno = this->getStmtErrNo();
 	strncpy(perrbuf,this->getStmtErrInfo(),strlen(this->getStmtErrInfo()));
@@ -653,7 +654,7 @@ bool	 mysql_cursor::isStmtResultNoData(int result)
 }
 
 
-int   mysql_cursor::affectRec() const
+int mysql_cursor::affectRec() const
 {
 	if(1 == BUFFER_ALL_RESULTS_TO_CLIENTSIDE)
       		return g_mysql.mysql_stmt_affected_rows(stmtp);
@@ -677,8 +678,12 @@ int mysql_cursor::execute(int iMode)
 		 	return -1;
 		
 		if(1 == BUFFER_ALL_RESULTS_TO_CLIENTSIDE)
+		{
 			if (g_mysql.mysql_stmt_store_result(stmtp))
+			{
 				return -1;
+			}
+		}
 	}
 	else
 	{
@@ -702,8 +707,12 @@ int mysql_cursor::getResultsRowCount()
 
 int mysql_cursor::fetch()
 {
+    int ret  =0;
 	m_row_count ++;
-	return g_mysql.mysql_stmt_fetch(stmtp);
+	ret = g_mysql.mysql_stmt_fetch(stmtp);
+    		g_mysql.mysql_debug("/tmp/client.trace");
+
+    return ret;
 }
 
 char* mysql_cursor::fetchBlobColumn(unsigned int col_pos)//Do not use this,mysql C API unsupport it now.
@@ -908,7 +917,7 @@ int 	mysqlapi::connect( char *user,char *password,char *hoststring )
 	   strlen(hoststring) > sizeof(m_hostname)-1 )
 	{
 		m_username[0] = '\0';
-        	return -1;
+            	return -1;
 	}
 	else
 	{
@@ -1278,13 +1287,13 @@ int mysqlapi::getSysDate(char *pcSysdate)
 
 	if(getRec((char *) "select now()", my_list)<0)
 		return -1;
-
-	if(!my_list[0].fieldValue().isNULL())
+        int iPos = 0;
+	if(!my_list[iPos].fieldValue().isNULL())
 	{
 		return -1;
 	}
 	
-	strcpy(pcSysdate, my_list[0].fieldValue().asDate());
+	strcpy(pcSysdate, my_list[iPos].fieldValue().asDate());
 
 
 	return 0;
@@ -1410,7 +1419,6 @@ int mysqlapi::fetch(int handle,TFieldList& fld_list)
 
 	if((result=ptr->fetch()) != 0)
 	{
-		
 		if(ptr->isStmtResultNoData(result))
 		{
 			ptr->reportErrorInfo(&d_stmt_err_no, d_stat_msgbuf);	
@@ -1451,7 +1459,7 @@ int mysqlapi::getCurRec(int handle,int* rowCount)
 	return 0;
 }
 
-int mysqlapi::closequery(int handle)
+int mysqlapi::closeQuery(int handle)
 {
 	now_operation = dynamic_statement;
 	mysql_cursor * ptr = m_curlist.find(handle);
@@ -1468,20 +1476,53 @@ int mysqlapi::closequery(int handle)
 
 int mysqlapi::phSetSql(const char *sql)
 {
+    if(!sql)
+        return -1;
+    char temp_sql[MAX_DATA_BUF_LENGTH];
+    memset(temp_sql,0,MAX_DATA_BUF_LENGTH);
+    int cp_flag=1;
+    int offset=0;
+    if(strlen(sql) >= MAX_DATA_BUF_LENGTH)
+        return -1;
+    
+   	for(int i=0;i<strlen(sql);i++)
+   	{
+		if(sql[i] == ':')
+		{
+			temp_sql[offset]='?';
+			offset ++;
+			cp_flag=0;
+			//continue;
+		}
+		if((sql[i] == ','  || sql[i] == ' ' ||sql[i] == ')'  ||sql[i] == ';' ) && cp_flag == 0)
+			cp_flag=1;
+		if(cp_flag == 1)
+		{
+			temp_sql[offset]=sql[i];
+			offset ++;
+		}		
+		if(i == strlen(sql)-1)
+			temp_sql[offset+1] = '\0';
+		#ifdef DEBUG
+			printf("************************************************\n");
+			printf("sql[%d]:%c\ntemp_sql[%d]:%c\n",i,sql[i],i,temp_sql[offset]);
+		#endif
+   	}
+
+    
 	now_operation = statement;
 	
-	if(!sql || strlen(sql)>=MAX_DATA_BUF_LENGTH)
+	if(strlen(temp_sql)>=MAX_DATA_BUF_LENGTH)
 		return -1;
 
 	this->phfree();
-
-	strncpy(m_sql,sql,MAX_DATA_BUF_LENGTH);
+	strncpy(m_sql,temp_sql,MAX_DATA_BUF_LENGTH);
 
 	return 0;
 }
 
 
-int  mysqlapi::phsetParm(unsigned int n,DataType d_type,void* value,int len)
+int  mysqlapi::phSetParm(unsigned int n,DataType d_type,void* value,int len)
 {
 	now_operation = statement;
 	

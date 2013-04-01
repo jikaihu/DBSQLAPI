@@ -381,19 +381,19 @@ public:
 
     int phSetSql(const char *sql);
 
-    int  phsetParm(unsigned int n,DataType d_type,void* value,int len=0);
+    int  phSetParm(unsigned int n,DataType d_type,void* value,int len=0);
 
     inline int phSetInt(unsigned int n, int *value)
-	{	return phsetParm(n-1,SQL_INT,value);}
+	{	return phSetParm(n-1,SQL_INT,value);}
 
     inline int phSetLonglong(unsigned int n, long long *value)
-	{	return phsetParm(n-1,SQL_LONG,value);}
+	{	return phSetParm(n-1,SQL_LONG,value);}
 	
     inline int phSetString(unsigned int n, char *value,int len)
-	{	return phsetParm(n-1,SQL_STRING,value,(len == 0) ? strlen(value) : len);}
+	{	return phSetParm(n-1,SQL_STRING,value,(len == 0) ? strlen(value) : len);}
 
     inline int phSetLongbyte(unsigned int n, void *value, int len)
-	{	return phsetParm(n-1,SQL_BINARY,value,len);}	
+	{	return phSetParm(n-1,SQL_BINARY,value,len);}	
 
 	int phExecute(bool isCommit=true);
 	
@@ -435,7 +435,7 @@ public:
 
 	int noValueFetch(int handle);
 
-	int closequery(int handle);
+	int closeQuery(int handle);
 
 	int getCurRec(int handle,int* rowCount);
 

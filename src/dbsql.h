@@ -39,7 +39,7 @@ public:
     float asFloat();
     const char* asDate();
     const void* asBinary();
-    const char* toString();
+    const char* toString(char* sBuf = NULL);
     int getLength();
     DataType getType();
     bool isNULL();
@@ -55,7 +55,7 @@ public:
     void setValue(const char* sData, int iLen);        
     void setNULL();
 private:
-    void bufferRead(const char* sData, int iLen);
+    void bufferRead(const char* sData, int iLen, bool isString = false);
     void freeBuffer();
 private:
     DataType eDataType;
@@ -67,7 +67,7 @@ private:
         long long l;
         unsigned long long ul;
         double d;
-        char *p;   
+        char *p;
     } uValue;
     int	 valueLen;    
 };
@@ -109,6 +109,7 @@ public:
     void freeFldList();
     void printFldList();
     TField &operator[](unsigned int nField);
+    TField &operator[](const char* sFieldName);
 private:
     TFieldList(const TFieldList& other);
     TFieldList &operator = (const TFieldList& other);
@@ -120,12 +121,16 @@ public:
     TException();
     TException(const TException &other);
     TException(int iErrNo, const char* sErrMsg, ...);
+    TException(int iNativeErrNo, int iErrNo, const char* sErrMsg, ...);
+    virtual ~TException();
     int getErrNo();
+    int getNativeErrNo();
     const char* getErrInfo();
-    ~TException();
-private:
-    int db_err_no;
-    char db_err_info[MAX_ERR_MSG];
+protected:
+    ErrorType sql_error_type;
+    int sql_err_no;
+    int native_err_no;
+    char sql_err_info[MAX_ERR_MSG];
 };
 
 class dbapi;
@@ -167,11 +172,20 @@ public:
     void query(const char *sql, int& handle);
     int fetch(int handle, TFieldList& fld_list);
     void noValueFetch(int handle);
-    void closequery(int handle);
+    void closeQuery(int handle);
     void getCurRec(int handle,int *rowCount);
     void setDateFormat(DateFormat dateFormat);
     void   changeDB(const char* db_name);
 };
+
+
+class TGlobals
+{
+public:
+    static const char* getVersion();
+};
+
+
 #endif
 
 

@@ -2,6 +2,9 @@
 #include "oracleapi.h"
 #include "mysqlapi.h"
 #include "dbapi.h"
+#include "dbsqlapierror.h"
+
+const char* g_version = "dbsql api version %s (built %s %s)";
 
 TValue::TValue()
 {
@@ -91,6 +94,54 @@ const void* TValue::asBinary()
     return uValue.p;
 }
 
+
+const char* TValue::toString(char* sBuf)
+{
+    char* p = sBuf;
+    switch(eDataType)
+    {   
+        case SQL_NULL:
+            p = "NULL";
+            break;
+        case SQL_INT:
+            if(p)
+                sprintf(p, "%d", uValue.i);
+            break;
+        case SQL_UINT:
+            if(p)
+                sprintf(p, "%u", uValue.ui);
+            break;
+        case SQL_LONG:
+            if(p)
+                sprintf(p, "%lld", uValue.l);
+            break;
+        case SQL_ULONG:
+            if(p)
+                sprintf(p, "%llu", uValue.ul);
+            break;
+        case SQL_FLOAT:
+            if(p)
+                sprintf(p, "%f", uValue.f);
+            break;
+        case SQL_DOUBLE:
+            if(p)
+                sprintf(p, "%f", uValue.d);
+            break;
+        case SQL_DATE:
+        case SQL_STRING:
+        case SQL_TEXT:
+            p = uValue.p;
+            break;
+        case SQL_BINARY:
+            p = uValue.p;
+            break;
+        default:
+            p = "";
+            break;
+    }
+    return p;
+}
+
 int TValue::getLength()
 {
     return valueLen;
@@ -156,7 +207,7 @@ void TValue::setDate(const char* sDate)
 
 void TValue::setString(const char* sStr)
 {
-    bufferRead(sStr, strlen(sStr));
+    bufferRead(sStr, strlen(sStr)+1, true);
     eDataType = SQL_STRING;
 }
 
@@ -177,7 +228,7 @@ void TValue::setNULL()
     eDataType = SQL_NULL;
 }
 
-void TValue::bufferRead(const char* sData, int iLen)
+void TValue::bufferRead(const char* sData, int iLen, bool isString)
 {
     if (!sData) 
         return;
@@ -187,8 +238,15 @@ void TValue::bufferRead(const char* sData, int iLen)
     uValue.p = (char *)new char[iLen];
     if (!uValue.p) 
         return;
-
-    memcpy(uValue.p, sData, iLen);
+    if(isString)
+    {
+        strcpy(uValue.p, sData);
+    }
+    else
+    {
+        memcpy(uValue.p, sData, iLen);
+    }
+        
 
 }
 
@@ -223,7 +281,7 @@ void TField::setFieldName(const char* sName)
 {
     if(NULL == sName)
     {
-        return ;
+        throw TException(LIB_ERR_STRING_IS_NULL, LIB_ERR_INFO_STRING_IS_NULL);
     }
     strncpy(fieldName, sName, MAX_FIELD_NAME_LEN - 1);
     fieldName[MAX_FIELD_NAME_LEN - 1] = 0;
@@ -280,13 +338,13 @@ TFieldList::~TFieldList()
 void TFieldList::newFldList(int iFieldNum)
 {
     if((iFieldNum > MAXITEMS) || (iFieldNum < 1))
-        return;
+    {
+        throw TException(LIB_ERR_MAX_FIELD_NUM, LIB_ERR_INFO_MAX_FIELD_NUM,
+            1, MAXITEMS);
+    }
     freeFldList();
     num = iFieldNum;
     fld_list = (TField *) new TField[num];
-
-    if(!fld_list) return;
-
     return;
 }
 
@@ -307,16 +365,36 @@ TField& TFieldList::operator[](unsigned int nField)
 {
     if(nField >= num)
     {
-        throw TException(9999, "Invalid Field number.");
+        throw TException(LIB_ERR_NO_INVALID_FIELD_NUM, LIB_ERR_INFO_INVALID_FIELD_NUM,
+            num, nField);
     }
     return fld_list[nField];
 }
+
+TField& TFieldList::operator[](const char* sFieldName)
+{
+    int iFieldPos = 0;
+    for(int iFieldPos = 0; iFieldPos < num; iFieldPos++)
+    {
+        if(0 == strcmp(fld_list[iFieldPos].getFieldName(), sFieldName))
+        {
+            break;
+        }
+    }
+    if(iFieldPos == num)
+    {
+        throw TException(LIB_ERR_NO_INVALID_FIELD_NAME, LIB_ERR_INFO_INVALID_FIELD_NAME,
+            sFieldName);
+    }
+    return fld_list[iFieldPos];
+}
+
 
 void TFieldList::printFldList()
 {
     unsigned int i;
     char *str;
-
+    char sBufTmp[32];
     for(i=0; i<num; i++)
     {
         if (fld_list[i].fieldValue().isNULL())
@@ -325,11 +403,71 @@ void TFieldList::printFldList()
         }
         else
         {
-            printf("field: %s  value: %s\n", fld_list[i].getFieldName(), fld_list[i].fieldValue().toString());
+            printf("field: %s  value: %s\n", fld_list[i].getFieldName(), fld_list[i].fieldValue().toString((char*)sBufTmp));
         }
 
     }
     return;
+}
+
+TException::TException()
+{
+    sql_error_type = SQL_No_Error;
+    sql_err_no = 0;
+    native_err_no = 0;
+    sql_err_info[0] = 0;
+}
+
+TException::TException(const TException &other)
+{
+    sql_error_type = other.sql_error_type;
+    sql_err_no = other.native_err_no;
+    native_err_no = other.native_err_no;
+    strcpy(sql_err_info, other.sql_err_info);
+}
+
+
+TException::TException(int iErrNo, const char* sErrMsg, ...)
+{
+    va_list ap;
+    va_start(ap, sErrMsg);
+    vsprintf(sql_err_info, sErrMsg, ap);
+    va_end(ap);
+    sql_err_no = iErrNo;
+    sql_error_type = SQL_Library_Error;
+    native_err_no = 0;
+}
+
+TException::TException(int iNativeErrNo, int iErrNo, const char* sErrMsg, ...)
+{
+    va_list ap;
+    va_start(ap, sErrMsg);
+    vsprintf(sql_err_info, sErrMsg, ap);
+    va_end(ap);
+    sql_err_no = iErrNo;
+    sql_error_type = SQL_DBMS_API_Error;
+    native_err_no = iNativeErrNo;
+}
+
+
+int TException::getErrNo()
+{
+    return sql_err_no;
+}
+
+int TException::getNativeErrNo()
+{
+    return native_err_no;
+}
+
+const char* TException::getErrInfo()
+{
+    return sql_err_info;
+}
+
+TException::~TException()
+{
+
 }
 
 
@@ -375,12 +513,23 @@ dbsql::dbsql(DB_Client edb)
 
 dbsql::dbsql(const char * db_name)
 {
+    if(!db_name)
+    {
+        throw TException(LIB_ERR_STRING_IS_NULL, LIB_ERR_INFO_STRING_IS_NULL);
+    }
     pdb = NULL;
     if(strcmp(db_name,"oracle") == 0)
+    {
         initDB(Oracle_Client);
-    if(strcmp(db_name,"mysql") == 0)
+    }
+    else if(strcmp(db_name,"mysql") == 0)
+    {
         initDB(Mysql_Client);
-	
+    }
+    else
+    {
+        throw TException(LIB_ERR_UNKNOWN_DB_NAME, LIB_ERR_INFO_UNKNOWN_DB_NAME, db_name);
+    }
 }
 
 
@@ -442,44 +591,7 @@ void dbsql::phfree()
 
 void dbsql::phSetSql(const char *sql)
 {
-   char temp_sql[MAX_DATA_BUF_LENGTH];
-   memset(temp_sql,0,MAX_DATA_BUF_LENGTH);
-   int cp_flag=1;
-   if (used_db == Oracle_Client) 
-		pdb->phSetSql(sql); 
-   if(used_db == Mysql_Client) 
-   {
-   	if(strlen(sql) >= MAX_DATA_BUF_LENGTH)
-		return;
-	int offset=0;
-   	for(int i=0;i<strlen(sql);i++)
-   	{
-		if(sql[i] == ':')
-		{
-			temp_sql[offset]='?';
-			offset ++;
-			cp_flag=0;
-			//continue;
-		}
-		if((sql[i] == ','  || sql[i] == ' ' ||sql[i] == ')'  ||sql[i] == ';' ) && cp_flag == 0)
-			cp_flag=1;
-		if(cp_flag == 1)
-		{
-			temp_sql[offset]=sql[i];
-			offset ++;
-		}		
-		if(i == strlen(sql)-1)
-			temp_sql[offset+1] = '\0';
-		#ifdef DEBUG
-			printf("************************************************\n");
-			printf("sql[%d]:%c\ntemp_sql[%d]:%c\n",i,sql[i],i,temp_sql[offset]);
-		#endif
-   	}
-	#ifdef DEBUG
-	       fprintf(stderr,"sql:%s\ntemp_sql:%s\n",sql,temp_sql);
-	#endif
-	pdb->phSetSql(temp_sql); 
-   }
+    pdb->phSetSql(sql); 
 }
 
 
@@ -541,9 +653,9 @@ void dbsql::getCurRec(int handle, int *rowCount)
 }
 
 
-void dbsql::closequery(int handle)
+void dbsql::closeQuery(int handle)
 {
-    pdb->closequery(handle);
+    pdb->closeQuery(handle);
 }
 
 
@@ -588,4 +700,16 @@ void   dbsql::changeDB(const char* db_name)
 {
     pdb->changeDB(db_name);
 }
+
+
+
+const char* TGlobals::getVersion()
+{
+    static char dbsqlapiVer[256];
+
+    sprintf(dbsqlapiVer, g_version, SQL_VERSION, __DATE__, __TIME__);
+
+    return  dbsqlapiVer;
+}
+
 

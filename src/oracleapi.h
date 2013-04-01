@@ -319,7 +319,7 @@ public:
 
 	int noValueFetch(int handle);
 
-	int closequery(int handle);
+	int closeQuery(int handle);
 
 	int getCurRec(int handle,int *rowCount);
 
